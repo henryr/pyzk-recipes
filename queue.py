@@ -24,8 +24,10 @@ class ZooKeeperQueue(object):
         try:
             zookeeper.create(self.handle,self.queuename,"queue top level", [ZOO_OPEN_ACL_UNSAFE],0)
         except IOError, e:
-            print "Queue already exists"
-            print e
+            if e.message == zookeeper.zerror(zookeeper.NODEEXISTS):
+                print "Queue already exists"    
+            else:
+                raise e
     
     def enqueue(self,val):
         zookeeper.create(self.handle, self.queuename+"/item", val, [ZOO_OPEN_ACL_UNSAFE],zookeeper.SEQUENCE)
@@ -46,7 +48,9 @@ class ZooKeeperQueue(object):
             zookeeper.delete(self.handle, node, stat["version"])
             return data
         except IOError, e:
-            return None 
+            if e.message == zookeeper.zerror(zookeeper.NONODE):
+                return None 
+            raise e
                
     def block_dequeue(self):
         def queue_watcher(handle,event,state,path):
@@ -65,16 +69,17 @@ class ZooKeeperQueue(object):
             self.cv.release()
               
 if __name__ == '__main__':                
-    client = False
     zk = ZooKeeperQueue("myfirstqueue")
-    if not client:
-        zk.enqueue("random string 1")
-        zk.enqueue("random string 2")
-        zk.enqueue("random string 3")
-    else:
-        v = zk.block_dequeue()
-        while v != None:
-        	print v
-        	v = zk.block_dequeue()
-        
+    print "Enqueuing three items"
+    zk.enqueue("queue item 1")
+    zk.enqueue("queue item 2")
+    zk.enqueue("queue item 3")
+    print "Done"
+
+    print "Consuming all items in queue"
+    v = zk.block_dequeue()
+    while v != None:
+    	print v
+    	v = zk.block_dequeue()
+    print "Done"
         
