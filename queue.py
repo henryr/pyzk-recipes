@@ -35,7 +35,7 @@ class ZooKeeperQueue(object):
     def dequeue(self):
         while True:
             children = sorted(zookeeper.get_children(self.handle, self.queuename,None))
-            if len(child) == 0:
+            if len(children) == 0:
                 return None
             for child in children:
                 data = self.get_and_delete(self.queuename + "/" + children[0])
@@ -77,9 +77,9 @@ if __name__ == '__main__':
     print "Done"
 
     print "Consuming all items in queue"
-    v = zk.block_dequeue()
+    v = zk.dequeue()
     while v != None:
     	print v
-    	v = zk.block_dequeue()
+    	v = zk.dequeue()
     print "Done"
         
