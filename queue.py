@@ -56,11 +56,8 @@ class ZooKeeperQueue(object):
     self.cv.release()
     try:
       zookeeper.create(self.handle,self.queuename,"queue top level", [ZOO_OPEN_ACL_UNSAFE],0)
-    except IOError, e:
-      if e.message == zookeeper.zerror(zookeeper.NODEEXISTS):
-        print "Queue already exists"
-      else:
-        raise e
+    except zookeeper.NodeExistsException:
+      print "Queue already exists"
 
   def enqueue(self,val):
     """
@@ -84,16 +81,19 @@ class ZooKeeperQueue(object):
 
   def get_and_delete(self,node):
     """
-    Atomic get-and-delete operation that retries until it is able to
-    delete the same version that it read.
+    Atomic get-and-delete operation. Returns None on failure.
     """
     try:
       (data,stat) = zookeeper.get(self.handle, node, None)
       zookeeper.delete(self.handle, node, stat["version"])
       return data
-    except IOError, e:
-      if e.message == zookeeper.zerror(zookeeper.NONODE):
-        return None
+    except zookeeper.NoNodeException:
+      # Someone deleted the node in between our get and delete
+      return None
+    except zookeeper.BadVersionException, e:
+      # Someone is modifying the queue in place. You can reasonably
+      # either retry to re-read the item, or abort.
+      print "Queue item %d modified in place, aborting..." % node
       raise e
 
   def block_dequeue(self):
