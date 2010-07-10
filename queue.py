@@ -23,7 +23,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import zookeeper, threading, sys
+import zookeeper, threading, sys, time
 ZOO_OPEN_ACL_UNSAFE = {"perms":0x1f, "scheme":"world", "id" :"anyone"};
 
 class ZooKeeperQueue(object):
@@ -118,15 +118,28 @@ class ZooKeeperQueue(object):
 
 if __name__ == '__main__':
   zk = ZooKeeperQueue("myfirstqueue")
-  print "Enqueuing three items"
-  zk.enqueue("queue item 1")
-  zk.enqueue("queue item 2")
-  zk.enqueue("queue item 3")
+  print "Enqueuing 100 items"
+  from threading import Thread
+  for i in xrange(100):
+    zk.enqueue("queue item %d" % i)
   print "Done"
+
+  class consumer(Thread):
+    def __init__(self, n):
+      self.num = n
+      Thread.__init__(self)
+
+    def run(self):
+      v = zk.dequeue()
+      while v != None:
+        print "Thread %d: %s" % (self.num, v)
+        v = zk.dequeue()
+        time.sleep(0.1)
   
-  print "Consuming all items in queue"
-  v = zk.dequeue()
-  while v != None:
-    print v
-    v = zk.dequeue()
+  print "Consuming all items in queue with 5 threads"
+  threads = [ consumer(x) for x in xrange(5) ]
+  for t in threads:
+    t.start()
+  for t in threads:
+    t.join()
   print "Done"
